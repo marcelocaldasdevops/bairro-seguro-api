@@ -7,6 +7,7 @@
 *.pyc
 __pycache__/
 local_settings.py
+db.sqlite3*
 db.sqlite3
 db.sqlite3-journal
 media
@@ -181,6 +182,7 @@ cython_debug/
 .idea/**/usage.statistics.xml
 .idea/**/dictionaries
 .idea/**/shelf
+.idea/*
 
 # AWS User-specific
 .idea/**/aws.xml
@@ -396,3 +398,6 @@ pyrightconfig.json
 .ionide
 
 # End of https://www.toptal.com/developers/gitignore/api/python,pycharm,visualstudiocode,django
+
+# ignore antigravity kit
+.agent/*
