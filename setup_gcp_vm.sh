@@ -8,13 +8,14 @@ echo "--- Iniciando configuração da VM bairro-seguro-backend ---"
 sudo apt-get update
 sudo apt-get upgrade -y
 
-# 2. Instalar Docker
-echo "--- Instalando Docker ---"
+# 2. Instalar dependências (Docker e OpenSSL)
+echo "--- Instalando Docker e OpenSSL ---"
 sudo apt-get install -y \
     ca-certificates \
     curl \
     gnupg \
-    lsb-release
+    lsb-release \
+    openssl
 
 sudo mkdir -p /etc/apt/keyrings
 curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
@@ -39,6 +40,11 @@ echo "1. Clone seu repositório: git clone <seu-repo-url>"
 echo "2. Entre na pasta: cd bairro-seguro-api"
 echo "3. Crie o arquivo .env: cp .env.example .env"
 echo "4. Edite o .env com suas configurações: nano .env"
-echo "5. Inicie a API: docker compose up -d --build"
+echo "5. Gere o certificado SSL: chmod +x generate_ssl.sh && ./generate_ssl.sh"
+echo "6. Inicie a API: docker compose up -d --build"
 echo ""
-echo "API estará rodando na porta 8000 (lembre-se de abrir a porta 8000 no firewall do GCP)"
+echo "⚠️  IMPORTANTE: Abra as portas no firewall do GCP:"
+echo "   - Porta 80 (HTTP)"
+echo "   - Porta 443 (HTTPS)"
+echo ""
+echo "Acesse a API via HTTPS: https://<IP-DA-VM>"

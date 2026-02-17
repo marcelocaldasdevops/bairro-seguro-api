@@ -401,3 +401,9 @@ pyrightconfig.json
 
 # ignore antigravity kit
 .agent/*
+
+# SSL certificates (never commit private keys!)
+nginx/ssl/
+*.key
+*.crt
+*.pem
