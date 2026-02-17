@@ -5,10 +5,8 @@ services:
     image: postgres:13
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    environment:
-      - POSTGRES_DB=bairro_seguro
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=postgres
+    env_file:
+      - .env
 
   backend:
     build: .
@@ -16,12 +14,8 @@ services:
       - .:/app
     ports:
       - "8000:8000"
-    environment:
-      - DB_NAME=bairro_seguro
-      - DB_USER=postgres
-      - DB_PASSWORD=postgres
-      - DB_HOST=db
-      - DB_PORT=5432
+    env_file:
+      - .env
     depends_on:
       - db
 
