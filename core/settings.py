@@ -161,4 +161,15 @@ REST_FRAMEWORK = {
     ],
 }
 
-CORS_ALLOW_ALL_ORIGINS = True  # Only for development
+# CORS Configuration
+# Em produção, configure CORS_ALLOWED_ORIGINS no .env com a URL do frontend
+cors_origins = os.environ.get('CORS_ALLOWED_ORIGINS', '')
+if cors_origins:
+    CORS_ALLOWED_ORIGINS = cors_origins.split(',')
+    CORS_ALLOW_ALL_ORIGINS = False
+else:
+    # Apenas para desenvolvimento
+    CORS_ALLOW_ALL_ORIGINS = True
+
+# Configurações de segurança para HTTPS
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
