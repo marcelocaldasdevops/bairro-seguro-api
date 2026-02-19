@@ -26,8 +26,12 @@ SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-1o11#+1(55g+x%(r#g7%-
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.environ.get('DEBUG', 'True') == 'True'
 
-ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', 'localhost,127.0.0.1,10.0.2.2,*').split(',')
+ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', 'localhost,127.0.0.1,10.0.2.2,35.193.57.27,bairroseguro.marcelocaldasdevops.com,*').split(',')
 
+CSRF_TRUSTED_ORIGINS = [
+    'https://bairroseguro.marcelocaldasdevops.com',
+    'https://bairro-seguro-web.netlify.app',
+]
 
 # Application definition
 
@@ -163,10 +167,10 @@ REST_FRAMEWORK = {
 
 # CORS Configuration
 # Em produção, configure CORS_ALLOWED_ORIGINS no .env com a URL do frontend
-cors_origins = os.environ.get('CORS_ALLOWED_ORIGINS', '')
+cors_origins = os.environ.get('CORS_ALLOWED_ORIGINS', 'https://bairroseguro.marcelocaldasdevops.com,https://bairro-seguro-web.netlify.app')
 if cors_origins:
     CORS_ALLOWED_ORIGINS = cors_origins.split(',')
-    CORS_ALLOW_ALL_ORIGINS = False
+    CORS_ALLOW_ALL_ORIGINS = True # Temporariamente True para debug, depois mude para False
 else:
     # Apenas para desenvolvimento
     CORS_ALLOW_ALL_ORIGINS = True
