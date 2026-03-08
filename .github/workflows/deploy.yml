@@ -1,0 +1,49 @@
+name: Deploy to GCP VM
+
+on:
+  push:
+    branches:
+      - main  # troque para "master" se for o caso
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H ${{ secrets.VM_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Deploy via SSH
+        run: |
+          ssh -i ~/.ssh/deploy_key \
+            ${{ secrets.VM_USER }}@${{ secrets.VM_HOST }} << 'EOF'
+
+            set -e  # para o script se qualquer comando falhar
+
+            echo "==> Entrando no diretório do projeto..."
+            cd /home/marcelocaldasdevops/bairro-seguro-api
+
+            echo "==> Puxando alterações do GitHub..."
+            git pull origin main
+
+            echo "==> Rebuilding backend e subindo containers..."
+            docker-compose up --build -d
+
+            echo "==> Rodando migrations..."
+            docker-compose exec -T backend python manage.py migrate --noinput
+
+            echo "==> Coletando static files..."
+            docker-compose exec -T backend python manage.py collectstatic --noinput
+
+            echo "==> Status dos containers:"
+            docker-compose ps
+
+            echo "==> Deploy finalizado com sucesso!"
+          EOF
