@@ -20,11 +20,8 @@ jobs:
         run: |
           mkdir -p ~/.ssh
           chmod 700 ~/.ssh
-
           echo "$SSH_PRIVATE_KEY" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
-
-          # Adiciona o host ao known_hosts
           ssh-keyscan -H "$VM_HOST" >> ~/.ssh/known_hosts
           chmod 644 ~/.ssh/known_hosts
 
@@ -46,16 +43,16 @@ jobs:
             git pull origin main
 
             echo "==> Subindo containers..."
-            docker-compose up --build -d
+            docker compose up --build -d
 
             echo "==> Rodando migrations..."
-            docker-compose exec -T backend python manage.py migrate --noinput
+            docker compose exec -T backend python manage.py migrate --noinput
 
             echo "==> Coletando static files..."
-            docker-compose exec -T backend python manage.py collectstatic --noinput
+            docker compose exec -T backend python manage.py collectstatic --noinput
 
             echo "==> Status:"
-            docker-compose ps
+            docker compose ps
 
             echo "==> Deploy OK!"
           EOF
