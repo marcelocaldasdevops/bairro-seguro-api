@@ -39,6 +39,9 @@ jobs:
             echo "==> Entrando no projeto..."
             cd ~/bairro-seguro-api
 
+            echo "==> Limpando caches locais (__pycache__)..."
+            find . -name "__pycache__" -exec rm -rf {} +
+
             echo "==> Git pull..."
             git pull origin main
 
