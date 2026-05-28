@@ -5,6 +5,7 @@ from rest_framework.response import Response
 from rest_framework.decorators import action
 from rest_framework.authtoken.models import Token
 from rest_framework_simplejwt.tokens import RefreshToken
+from math import radians, cos, sin, asin, sqrt
 
 from .models import Incident, IncidentAttachment, IncidentComment, IncidentConfirmation, Location, User
 from .serializers import (
@@ -16,6 +17,15 @@ from .serializers import (
     LocationSerializer,
     UserSerializer,
 )
+
+def haversine(lon1, lat1, lon2, lat2):
+    lon1, lat1, lon2, lat2 = map(radians, [lon1, lat1, lon2, lat2])
+    dlon = lon2 - lon1
+    dlat = lat2 - lat1
+    a = sin(dlat/2)**2 + cos(lat1) * cos(lat2) * sin(dlon/2)**2
+    c = 2 * asin(sqrt(a))
+    r = 6371 # Radius of earth in kilometers
+    return c * r
 
 class UserViewSet(viewsets.ModelViewSet):
     queryset = User.objects.all()
@@ -48,7 +58,7 @@ class UserViewSet(viewsets.ModelViewSet):
                     'user': UserSerializer(user).data,
                 }
             )
-        return Response({'error': 'Credenciais inválidas'}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({'error': 'Credenciais invalidas'}, status=status.HTTP_400_BAD_REQUEST)
 
 class IncidentViewSet(viewsets.ModelViewSet):
     queryset = Incident.objects.all()
@@ -83,8 +93,37 @@ class IncidentViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['get'], permission_classes=[permissions.IsAuthenticated])
     def dashboard(self, request):
+        lat = request.query_params.get('latitude')
+        lon = request.query_params.get('longitude')
+        radius = request.query_params.get('radius_km')
+
         incidents = self.get_queryset()
-        if request.user.bairro:
+
+        if lat and lon and radius:
+            try:
+                lat = float(lat)
+                lon = float(lon)
+                radius = float(radius)
+                
+                lat_deg = radius / 111.0
+                lon_deg = radius / (111.0 * abs(cos(radians(lat))))
+                
+                incidents = incidents.filter(
+                    location__latitude__gte=lat - lat_deg,
+                    location__latitude__lte=lat + lat_deg,
+                    location__longitude__gte=lon - lon_deg,
+                    location__longitude__lte=lon + lon_deg
+                )
+                
+                incident_ids = []
+                for incident in incidents:
+                    dist = haversine(lon, lat, float(incident.location.longitude), float(incident.location.latitude))
+                    if dist <= radius:
+                        incident_ids.append(incident.id)
+                incidents = Incident.objects.filter(id__in=incident_ids).select_related('user', 'location').prefetch_related('comments', 'confirmations').order_by('-datetime')
+            except ValueError:
+                pass
+        elif request.user.bairro:
             incidents = incidents.filter(
                 Q(bairro__iexact=request.user.bairro) | Q(user__bairro__iexact=request.user.bairro)
             )
@@ -99,61 +138,51 @@ class IncidentViewSet(viewsets.ModelViewSet):
         radius_km = request.query_params.get('radius_km')
         if radius_km:
             queryset = queryset.filter(radius_km__lte=radius_km)
-        serializer = self.get_serializer(queryset[:50], many=True)
+        serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)
 
     @action(detail=False, methods=['get'])
     def map(self, request):
         queryset = self.get_queryset()
-        serializer = self.get_serializer(queryset[:200], many=True)
+        serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)
 
-    @action(detail=True, methods=['get'])
-    def comments(self, request, pk=None):
-        incident = self.get_object()
-        serializer = IncidentCommentSerializer(incident.comments.select_related('user'), many=True)
-        return Response(serializer.data)
-
-    @comments.mapping.post
-    def create_comment(self, request, pk=None):
-        incident = self.get_object()
-        serializer = IncidentCommentSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        serializer.save(incident=incident, user=request.user)
-        return Response(serializer.data, status=status.HTTP_201_CREATED)
-
-    @action(detail=True, methods=['post', 'delete'], permission_classes=[permissions.IsAuthenticated])
+    @action(detail=True, methods=['post'])
     def confirm(self, request, pk=None):
         incident = self.get_object()
-        if request.method.lower() == 'post':
-            confirmation, created = IncidentConfirmation.objects.get_or_create(
-                incident=incident,
-                user=request.user,
-            )
-            serializer = IncidentConfirmationSerializer(confirmation)
-            return Response(
-                serializer.data,
-                status=status.HTTP_201_CREATED if created else status.HTTP_200_OK,
-            )
+        confirmation, created = IncidentConfirmation.objects.get_or_create(
+            incident=incident,
+            user=request.user
+        )
+        if created:
+            return Response({'status': 'confirmed'}, status=status.HTTP_201_CREATED)
+        return Response({'status': 'already confirmed'}, status=status.HTTP_200_OK)
 
+    @action(detail=True, methods=['delete'])
+    def unconfirm(self, request, pk=None):
+        incident = self.get_object()
         IncidentConfirmation.objects.filter(incident=incident, user=request.user).delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
-    @action(detail=True, methods=['get', 'post'], permission_classes=[permissions.IsAuthenticatedOrReadOnly])
+    @action(detail=True, methods=['get', 'post'])
+    def comments(self, request, pk=None):
+        incident = self.get_object()
+        if request.method == 'POST':
+            serializer = IncidentCommentSerializer(data=request.data)
+            if serializer.is_valid():
+                serializer.save(incident=incident, user=request.user)
+                return Response(serializer.data, status=status.HTTP_201_CREATED)
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        
+        comments = incident.comments.all()
+        serializer = IncidentCommentSerializer(comments, many=True)
+        return Response(serializer.data)
+
+    @action(detail=True, methods=['post'])
     def attachments(self, request, pk=None):
         incident = self.get_object()
-        if request.method.lower() == 'get':
-            serializer = IncidentAttachmentSerializer(
-                incident.attachments.all(),
-                many=True,
-                context={'request': request},
-            )
-            return Response(serializer.data)
-
-        serializer = IncidentAttachmentSerializer(
-            data=request.data,
-            context={'request': request},
-        )
-        serializer.is_valid(raise_exception=True)
-        serializer.save(incident=incident)
-        return Response(serializer.data, status=status.HTTP_201_CREATED)
+        serializer = IncidentAttachmentSerializer(data=request.data, context={'request': request})
+        if serializer.is_valid():
+            serializer.save(incident=incident)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

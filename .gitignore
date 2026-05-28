@@ -401,9 +401,17 @@ pyrightconfig.json
 
 # ignore antigravity kit
 .agent/*
+.codex/*
 
 # SSL certificates (never commit private keys!)
 nginx/ssl/
 *.key
 *.crt
 *.pem
+
+# IDE (full ignore)
+.idea/
+*.iml
+
+# SQLite databases
+*.sqlite

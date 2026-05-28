@@ -235,3 +235,37 @@ class IncidentApiTests(BaseApiTestCase):
         details_response = self.client.get(f'/api/incidents/{incident.id}/')
         self.assertEqual(details_response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(details_response.data['attachments']), 1)
+
+
+class DashboardApiTests(BaseApiTestCase):
+    def test_dashboard_filtering_by_location_and_radius(self):
+        # Localização central (ex: Ponto A)
+        lat_a, lon_a = -3.10194, -59.97416
+        
+        # Incidente próximo (0.5km de A)
+        # Aproximadamente 0.0045 graus lat ~ 0.5km
+        loc_near = Location.objects.create(latitude=lat_a + 0.001, longitude=lon_a + 0.001)
+        Incident.objects.create(
+            user=self.user, title='Perto', description='D', category='OUTRO', 
+            severity_level='LOW', location=loc_near, criticality='LOW'
+        )
+        
+        # Incidente longe (5km de A)
+        loc_far = Location.objects.create(latitude=lat_a + 0.05, longitude=lon_a + 0.05)
+        Incident.objects.create(
+            user=self.user, title='Longe', description='D', category='OUTRO', 
+            severity_level='LOW', location=loc_far, criticality='LOW'
+        )
+        
+        # Testa dashboard com raio de 2km
+        response = self.client.get(f'/api/incidents/dashboard/?latitude={lat_a}&longitude={lon_a}&radius_km=2.0')
+        
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        # O backend atual não retorna a lista completa de incidentes no dashboard, 
+        # mas as estatísticas devem refletir apenas o próximo.
+        # incidents_last_24h deve ser 1
+        self.assertEqual(response.data['incidents_last_24h'], 1)
+        
+        # Testa dashboard com raio de 10km (deve pegar os dois)
+        response = self.client.get(f'/api/incidents/dashboard/?latitude={lat_a}&longitude={lon_a}&radius_km=10.0')
+        self.assertEqual(response.data['incidents_last_24h'], 2)
